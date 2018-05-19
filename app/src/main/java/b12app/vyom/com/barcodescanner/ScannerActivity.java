@@ -42,6 +42,9 @@ public class ScannerActivity extends AppCompatActivity implements View.OnClickLi
     public static final int REQUEST_CODE = 007;
     public static final int PERMISSION_REQUEST_CODE = 1;
     public static final String NO_BARCODE_FOUND = "No Barcode Found!";
+    public static final String PICTURE_JPG = "picture.jpg";
+    public static final String PROVIDER = ".provider";
+    public static final String PERMISSION_DENIED = "Permission Denied!";
     private ImageView image;
     private TextView scan_header, scan_results;
     private Button btnCapture;
@@ -67,6 +70,7 @@ public class ScannerActivity extends AppCompatActivity implements View.OnClickLi
         //initializing views.
         initViews();
 
+        //retrieving data from savedInstanceState to set image and set the text.
         if(savedInstanceState!=null){
 
             imageUri = Uri.parse(savedInstanceState.getString(IMAGE_URI));
@@ -75,10 +79,12 @@ public class ScannerActivity extends AppCompatActivity implements View.OnClickLi
 
         btnCapture.setOnClickListener(this);
 
+        //initializing barcode detector using builder pattern.
         barcodeDetector = new BarcodeDetector.Builder(getApplicationContext())
                                 .setBarcodeFormats(Barcode.DATA_MATRIX | Barcode.QR_CODE)
                                 .build();
 
+        //checking if barcode detector has been properly initialized.
         if(!barcodeDetector.isOperational()){
             scan_results.setText(BARCODE_SCANNER_COULD_NOT_SET_UP_AUTOMATICALLY);
             return;
@@ -98,6 +104,7 @@ public class ScannerActivity extends AppCompatActivity implements View.OnClickLi
 
         switch (v.getId()){
             case R.id.btnCapture:
+                //requesting permissions for writing to external storage.
                 ActivityCompat.requestPermissions(ScannerActivity.this, new
                         String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUEST_CODE);
                 break;
@@ -109,22 +116,28 @@ public class ScannerActivity extends AppCompatActivity implements View.OnClickLi
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         switch (requestCode) {
             case PERMISSION_REQUEST_CODE:
+                //if permission granted then capturing image using camera.
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     captureBarcode();
                 } else {
-                    Toast.makeText(ScannerActivity.this, "Permission Denied!", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ScannerActivity.this, PERMISSION_DENIED, Toast.LENGTH_SHORT).show();
                 }
         }
     }
 
     private void captureBarcode() {
-
+        //sending intent to camera app to capture the image and return the bitmap.
         Intent imageIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        File picture = new File(Environment.getExternalStorageDirectory(),"picture.jpg");
-        imageUri = FileProvider.getUriForFile(this,BuildConfig.APPLICATION_ID+".provider",picture);
+        File picture = new File(Environment.getExternalStorageDirectory(), PICTURE_JPG);
+        imageUri = FileProvider.getUriForFile(this,BuildConfig.APPLICATION_ID+ PROVIDER,picture);
         imageIntent.putExtra(MediaStore.EXTRA_OUTPUT,imageUri);
         startActivityForResult(imageIntent, REQUEST_CODE);
 
+    }
+    private void launchMediaScanIntent() {
+        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+        mediaScanIntent.setData(imageUri);
+        this.sendBroadcast(mediaScanIntent);
     }
 
     @Override
@@ -178,9 +191,5 @@ public class ScannerActivity extends AppCompatActivity implements View.OnClickLi
         return BitmapFactory.decodeStream(context.getContentResolver().openInputStream(imageUri),null,options);
     }
 
-    private void launchMediaScanIntent() {
-        Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-        mediaScanIntent.setData(imageUri);
-        this.sendBroadcast(mediaScanIntent);
-    }
+
 }
